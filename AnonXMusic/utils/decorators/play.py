@@ -21,7 +21,7 @@ from AnonXMusic.utils.database import (
     is_maintenance,
 )
 from AnonXMusic.utils.inline import botplaylist_markup
-from config import PLAYLIST_IMG_URL, SUPPORT_CHAT, adminlist
+from config import PLAYLIST_IMG_URL, SUPPORT_CHAT, MUST_JOIN, adminlist
 from strings import get_string
 
 links = {}
@@ -36,13 +36,14 @@ def PlayWrapper(command):
                 [
                     [
                         InlineKeyboardButton(
-                            text="ʜᴏᴡ ᴛᴏ ғɪx ?",
+                            text="How To Fix?",
                             callback_data="AnonymousAdmin",
                         ),
                     ]
                 ]
             )
-            return await message.reply_text(_["general_3"], reply_markup=upl)
+            return await message.reply_text(
+                _["general_3"], reply_markup=upl)
 
         if await is_maintenance() is False:
             if message.from_user.id not in SUDOERS:
@@ -50,7 +51,19 @@ def PlayWrapper(command):
                     text=f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ, ᴠɪsɪᴛ <a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a> ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ.",
                     disable_web_page_preview=True,
                 )
-
+              
+           if MUST_JOIN:
+            try:
+                await app.get_chat_member(MUST_JOIN, message.from_user.id)
+            except UserNotParticipant:
+                sub = await app.export_chat_invite_link(MUST_JOIN)
+                kontol = InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("📑 Gabung Dulu", url=sub)]
+                    ]
+                )
+                return await message.reply_text(_["force_sub"].format(message.from_user.mention), reply_markup=kontol)
+            
         try:
             await message.delete()
         except:
