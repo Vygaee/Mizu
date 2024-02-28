@@ -1,76 +1,55 @@
+
 import asyncio
 
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import (
-    ChatAdminRequired,
-    InviteRequestSent,
+    ChatAdminRequired,    
     UserAlreadyParticipant,
     UserNotParticipant,
 )
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from config import PLAYLIST_IMG_URL, PRIVATE_BOT_MODE, MUST_JOIN, adminlist
+from AnonXMusic.misc import db
+from strings import get_string
 from AnonXMusic import YouTube, app
 from AnonXMusic.misc import SUDOERS
 from AnonXMusic.utils.database import (
-    get_assistant,
     get_cmode,
     get_lang,
     get_playmode,
+    get_assistant,
     get_playtype,
     is_active_chat,
-    is_maintenance,
     is_commanddelete_on,
     is_served_private_chat,
 )
-from AnonXMusic.utils.inline import botplaylist_markup
-from config import PLAYLIST_IMG_URL, SUPPORT_CHAT, MUST_JOIN, adminlist
-from strings import get_string
+from AnonXMusic.utils.database.memorydatabase import is_maintenance
+from AnonXMusic.utils.inline.playlist import botplaylist_markup
 
 links = {}
 
 
 def PlayWrapper(command):
     async def wrapper(client, message):
-        language = await get_lang(message.chat.id)
-        _ = get_string(language)
-        if message.sender_chat:
-            upl = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="How To Fix?",
-                            callback_data="AnonymousAdmin",
-                        ),
-                    ]
-                ]
-            )
-            return await message.reply_text(
-                _["general_3"], reply_markup=upl)
-
         if await is_maintenance() is False:
             if message.from_user.id not in SUDOERS:
                 return await message.reply_text(
-                    text=f"{app.mention} ɪs ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ, ᴠɪsɪᴛ <a href={SUPPORT_CHAT}>sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ</a> ғᴏʀ ᴋɴᴏᴡɪɴɢ ᴛʜᴇ ʀᴇᴀsᴏɴ.",
-                    disable_web_page_preview=True,
+                    "Bot is under maintenance. Please wait for some time..."
                 )
-                       
-        try:
-            await message.delete()
-        except:
-            pass
-            
-if MUST_JOIN:
+        if PRIVATE_BOT_MODE == str(True):
+            if not await is_served_private_chat(message.chat.id):
+                await message.reply_text(
+                    "**Private Music Bot**\n\nOnly for authorized chats from the owner. Ask my owner to allow your chat first."
+                )
+                return await app.leave_chat(message.chat.id)
+        if await is_commanddelete_on(message.chat.id):
             try:
-                await app.get_chat_member(MUST_JOIN, message.from_user.id)
-            except UserNotParticipant:
-                sub = await app.export_chat_invite_link(MUST_JOIN)
-                kontol = InlineKeyboardMarkup(
-                    [
-                        [InlineKeyboardButton("📑 Gabung Dulu", url=sub)]
-                    ]
-                )
-                return await message.reply_text(_["force_sub"].format(message.from_user.mention), reply_markup=kontol)
-                
+                await message.delete()
+            except:
+                pass
+        language = await get_lang(message.chat.id)
+        _ = get_string(language)
         audio_telegram = (
             (message.reply_to_message.audio or message.reply_to_message.voice)
             if message.reply_to_message
@@ -89,13 +68,39 @@ if MUST_JOIN:
                 buttons = botplaylist_markup(_)
                 return await message.reply_photo(
                     photo=PLAYLIST_IMG_URL,
-                    caption=_["play_18"],
+                    caption=_["playlist_1"],
                     reply_markup=InlineKeyboardMarkup(buttons),
                 )
+        if message.sender_chat:
+            upl = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="How to Fix this? ",
+                            callback_data="AnonymousAdmin",
+                        ),
+                    ]
+                ]
+            )
+            return await message.reply_text(
+                _["general_4"], reply_markup=upl
+                   )
+        if MUST_JOIN:
+            try:
+                await app.get_chat_member(MUST_JOIN, message.from_user.id)
+            except UserNotParticipant:
+                sub = await app.export_chat_invite_link(MUST_JOIN)
+                kontol = InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton("📑 Gabung Dulu", url=sub)]
+                    ]
+                )
+                return await message.reply_text(_["force_sub"].format(message.from_user.mention), reply_markup=kontol)
+            
         if message.command[0][0] == "c":
             chat_id = await get_cmode(message.chat.id)
             if chat_id is None:
-                return await message.reply_text(_["setting_7"])
+                return await message.reply_text(_["setting_12"])
             try:
                 chat = await app.get_chat(chat_id)
             except:
@@ -110,20 +115,19 @@ if MUST_JOIN:
             if message.from_user.id not in SUDOERS:
                 admins = adminlist.get(message.chat.id)
                 if not admins:
-                    return await message.reply_text(_["admin_13"])
-                else:
-                    if message.from_user.id not in admins:
-                        return await message.reply_text(_["play_4"])
+                    return await message.reply_text(_["admin_18"])
+                if message.from_user.id not in admins:
+                    return await message.reply_text(_["play_4"])
         if message.command[0][0] == "v":
             video = True
         else:
-            if "-v" in message.text:
+            if message.text and "-v" in message.text:
                 video = True
             else:
                 video = True if message.command[0][1] == "v" else None
         if message.command[0][-1] == "e":
             if not await is_active_chat(chat_id):
-                return await message.reply_text(_["play_16"])
+                return await message.reply_text(_["play_18"])
             fplay = True
         else:
             fplay = None
@@ -134,13 +138,13 @@ if MUST_JOIN:
                 try:
                     get = await app.get_chat_member(chat_id, userbot.id)
                 except ChatAdminRequired:
-                    return await message.reply_text(_["call_1"])
-                if (
-                    get.status == ChatMemberStatus.BANNED
-                    or get.status == ChatMemberStatus.RESTRICTED
-                ):
+                    return await message.reply_text(_["call_12"])
+                if get.status in [
+                    ChatMemberStatus.BANNED,
+                    ChatMemberStatus.RESTRICTED,
+                ]:
                     return await message.reply_text(
-                        _["call_2"].format(
+                        _["call_13"].format(
                             app.mention, userbot.id, userbot.name, userbot.username
                         )
                     )
@@ -158,17 +162,17 @@ if MUST_JOIN:
                         try:
                             invitelink = await app.export_chat_invite_link(chat_id)
                         except ChatAdminRequired:
-                            return await message.reply_text(_["call_1"])
+                            return await message.reply_text(_["call_12"])
                         except Exception as e:
                             return await message.reply_text(
-                                _["call_3"].format(app.mention, type(e).__name__)
+                                _["call_14"].format(app.mention, type(e).__name__)
                             )
 
                 if invitelink.startswith("https://t.me/+"):
                     invitelink = invitelink.replace(
                         "https://t.me/+", "https://t.me/joinchat/"
                     )
-                myu = await message.reply_text(_["call_4"].format(app.mention))
+                myu = await message.reply_text(_["call_15"].format(app.mention))
                 try:
                     await asyncio.sleep(1)
                     await userbot.join_chat(invitelink)
@@ -177,15 +181,15 @@ if MUST_JOIN:
                         await app.approve_chat_join_request(chat_id, userbot.id)
                     except Exception as e:
                         return await message.reply_text(
-                            _["call_3"].format(app.mention, type(e).__name__)
+                            _["call_14"].format(app.mention, type(e).__name__)
                         )
                     await asyncio.sleep(3)
-                    await myu.edit(_["call_5"].format(app.mention))
+                    await myu.edit(_["call_16"].format(app.mention))
                 except UserAlreadyParticipant:
                     pass
                 except Exception as e:
                     return await message.reply_text(
-                        _["call_3"].format(app.mention, type(e).__name__)
+                        _["call_14"].format(app.mention, type(e).__name__)
                     )
 
                 links[chat_id] = invitelink
