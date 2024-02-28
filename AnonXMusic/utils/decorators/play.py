@@ -19,6 +19,8 @@ from AnonXMusic.utils.database import (
     get_playtype,
     is_active_chat,
     is_maintenance,
+    is_commanddelete_on,
+    is_served_private_chat,
 )
 from AnonXMusic.utils.inline import botplaylist_markup
 from config import PLAYLIST_IMG_URL, SUPPORT_CHAT, MUST_JOIN, adminlist
